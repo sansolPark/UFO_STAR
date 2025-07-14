@@ -1,0 +1,832 @@
+ <!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>별자리 수호대 - Constellation Run</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0c0c2b, #1a1a3e, #2d2d5f);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            border: 3px solid #4a4a8a;
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(74, 74, 138, 0.5);
+            background: radial-gradient(circle at 50% 50%, #0f0f2a, #050510);
+        }
+
+        #gameCanvas {
+            display: block;
+            border-radius: 12px;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            z-index: 10;
+        }
+
+        .stage-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #fff;
+            font-size: 16px;
+            text-align: right;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            z-index: 10;
+        }
+
+        .main-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            border: 2px solid #4a4a8a;
+            z-index: 20;
+        }
+
+        .main-menu h1 {
+            color: #4a9eff;
+            margin-bottom: 30px;
+            font-size: 32px;
+            text-shadow: 0 0 20px rgba(74, 158, 255, 0.5);
+        }
+
+        .constellation-preview {
+            font-size: 24px;
+            margin: 20px 0;
+            opacity: 0.7;
+        }
+
+        .game-over, .stage-clear {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            border: 2px solid #4a4a8a;
+            display: none;
+            z-index: 20;
+        }
+
+        .game-over h2 {
+            color: #ff6b6b;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .stage-clear h2 {
+            color: #4eff4e;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #4a4a8a, #6b6baa);
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: linear-gradient(45deg, #6b6baa, #8a8aca);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #4a9eff, #1e7acc);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #6bb2ff, #4a9eff);
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #aaa;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .progress-bar {
+            position: absolute;
+            top: 70px;
+            left: 20px;
+            width: 200px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4a9eff, #4eff4e);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .stars-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .star-bg {
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: twinkle 2s infinite alternate;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.3; }
+            100% { opacity: 0.8; }
+        }
+
+        .constellation-info {
+            position: absolute;
+            bottom: 80px;
+            left: 20px;
+            color: #aaa;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="stars-bg" id="starsBg"></div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div class="ui-overlay">
+            <div>점수: <span id="score">0</span></div>
+            <div>최고 점수: <span id="bestScore">0</span></div>
+        </div>
+        
+        <div class="stage-info">
+            <div>스테이지 <span id="currentStage">1</span></div>
+            <div id="stageName">카시오페아 자리</div>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        
+        <div class="constellation-info" id="constellationInfo">
+            별을 모두 수집하여 카시오페아 자리를 완성하세요!
+        </div>
+
+        <div class="main-menu" id="mainMenu">
+            <h1>🌟 별자리 수호대 🌟</h1>
+            <div class="constellation-preview">✨ ✨ ✨ ✨ ✨</div>
+            <p>UFO를 조종해 별자리 모양대로 별을 수집하고<br>혜성을 피하면서 생존하세요!</p>
+            <button class="btn btn-primary" onclick="startGame()">게임 시작</button>
+            <div style="margin-top: 20px; font-size: 14px; color: #aaa;">
+                최고 점수: <span id="menuBestScore">0</span>
+            </div>
+        </div>
+
+        <div class="stage-clear" id="stageClear">
+            <h2>스테이지 클리어!</h2>
+            <p>별자리 완성! 보너스 +5점</p>
+            <p>다음 스테이지: <span id="nextStageName"></span></p>
+            <button class="btn btn-primary" onclick="nextStage()">다음 스테이지</button>
+        </div>
+
+        <div class="game-over" id="gameOver">
+            <h2>게임 오버!</h2>
+            <p>도달 스테이지: <span id="finalStage">1</span></p>
+            <p>최종 점수: <span id="finalScore">0</span></p>
+            <p>최고 점수: <span id="finalBestScore">0</span></p>
+            <button class="btn btn-primary" onclick="restartGame()">다시 시작</button>
+            <button class="btn" onclick="showMainMenu()">메인 메뉴</button>
+        </div>
+
+        <div class="instructions">
+            방향키 또는 WASD로 UFO를 조종하세요!
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 게임 상태
+        let gameState = {
+            scene: 'menu', // menu, playing, stageClear, gameOver
+            score: 0,
+            bestScore: parseInt(localStorage.getItem('bestScore') || '0'),
+            currentStage: 1,
+            collectedStars: 0,
+            totalStars: 0
+        };
+
+        // 별자리 데이터
+        const constellations = {
+            1: {
+                name: '카시오페아 자리',
+                nameEn: 'Cassiopeia',
+                stars: [
+                    {x: 150, y: 200},
+                    {x: 250, y: 150},
+                    {x: 350, y: 200},
+                    {x: 450, y: 150},
+                    {x: 550, y: 200}
+                ],
+                info: '별을 모두 수집하여 카시오페아 자리를 완성하세요!'
+            },
+            2: {
+                name: '북두칠성',
+                nameEn: 'Big Dipper',
+                stars: [
+                    {x: 200, y: 300},
+                    {x: 250, y: 280},
+                    {x: 300, y: 260},
+                    {x: 350, y: 240},
+                    {x: 400, y: 260},
+                    {x: 450, y: 280},
+                    {x: 500, y: 300}
+                ],
+                info: '북두칠성의 국자 모양을 완성하세요!'
+            },
+            3: {
+                name: '백조자리',
+                nameEn: 'Cygnus',
+                stars: [
+                    {x: 400, y: 150},
+                    {x: 400, y: 450},
+                    {x: 400, y: 300},
+                    {x: 200, y: 300},
+                    {x: 600, y: 300},
+                    {x: 300, y: 250},
+                    {x: 500, y: 250},
+                    {x: 300, y: 350},
+                    {x: 500, y: 350},
+                    {x: 400, y: 200}
+                ],
+                info: '백조자리의 십자형 모양을 완성하세요!'
+            }
+        };
+
+        // UFO
+        let ufo = {
+            x: 400,
+            y: 500,
+            size: 20,
+            speed: 4,
+            dx: 0,
+            dy: 0,
+            trail: []
+        };
+
+        // 게임 오브젝트
+        let stars = [];
+        let comets = [];
+        let particles = [];
+
+        // 최고 점수 표시 업데이트
+        function updateBestScoreDisplay() {
+            document.getElementById('bestScore').textContent = gameState.bestScore;
+            document.getElementById('menuBestScore').textContent = gameState.bestScore;
+        }
+
+        // 배경 별들 생성
+        function createBackgroundStars() {
+            const starsBg = document.getElementById('starsBg');
+            starsBg.innerHTML = '';
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.className = 'star-bg';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.width = (Math.random() * 2 + 1) + 'px';
+                star.style.height = star.style.width;
+                star.style.animationDelay = Math.random() * 2 + 's';
+                starsBg.appendChild(star);
+            }
+        }
+
+        // 스테이지 초기화
+        function initStage() {
+            const constellation = constellations[gameState.currentStage];
+            if (!constellation) {
+                // 모든 스테이지 클리어
+                gameState.scene = 'gameOver';
+                return;
+            }
+
+            stars = constellation.stars.map(pos => ({
+                x: pos.x,
+                y: pos.y,
+                size: 8,
+                collected: false,
+                twinkle: Math.random() * Math.PI * 2,
+                originalX: pos.x,
+                originalY: pos.y
+            }));
+
+            gameState.collectedStars = 0;
+            gameState.totalStars = stars.length;
+            
+            // UFO 초기 위치
+            ufo.x = 400;
+            ufo.y = 500;
+            ufo.dx = 0;
+            ufo.dy = 0;
+            ufo.trail = [];
+
+            // 혜성 클리어
+            comets = [];
+            particles = [];
+
+            // UI 업데이트
+            updateStageInfo();
+            updateProgress();
+        }
+
+        // 스테이지 정보 업데이트
+        function updateStageInfo() {
+            const constellation = constellations[gameState.currentStage];
+            if (constellation) {
+                document.getElementById('currentStage').textContent = gameState.currentStage;
+                document.getElementById('stageName').textContent = constellation.name;
+                document.getElementById('constellationInfo').textContent = constellation.info;
+            }
+        }
+
+        // 진행률 업데이트
+        function updateProgress() {
+            const progress = (gameState.collectedStars / gameState.totalStars) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        // 혜성 생성
+        function createComet() {
+            const speed = 2 + (gameState.currentStage - 1) * 0.5;
+            const size = Math.random() * 8 + 12;
+            
+            comets.push({
+                x: Math.random() * canvas.width,
+                y: -size,
+                size: size,
+                speed: speed,
+                tail: [],
+                color: `hsl(${Math.random() * 60 + 300}, 80%, 70%)`
+            });
+        }
+
+        // 파티클 생성
+        function createParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    dx: (Math.random() - 0.5) * 6,
+                    dy: (Math.random() - 0.5) * 6,
+                    life: 1,
+                    decay: 0.02,
+                    color: color,
+                    size: Math.random() * 3 + 1
+                });
+            }
+        }
+
+        // UFO 그리기
+        function drawUfo() {
+            ctx.save();
+            
+            // UFO 궤적 그리기
+            if (ufo.trail.length > 1) {
+                ctx.strokeStyle = 'rgba(74, 158, 255, 0.6)';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 10;
+                
+                ctx.beginPath();
+                ctx.moveTo(ufo.trail[0].x, ufo.trail[0].y);
+                for (let i = 1; i < ufo.trail.length; i++) {
+                    const alpha = i / ufo.trail.length;
+                    ctx.globalAlpha = alpha * 0.6;
+                    ctx.lineTo(ufo.trail[i].x, ufo.trail[i].y);
+                }
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+            
+            // UFO 본체
+            ctx.fillStyle = '#4a9eff';
+            ctx.shadowColor = '#4a9eff';
+            ctx.shadowBlur = 20;
+            
+            ctx.beginPath();
+            ctx.ellipse(ufo.x, ufo.y, ufo.size, ufo.size * 0.6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // UFO 돔
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.shadowBlur = 5;
+            ctx.beginPath();
+            ctx.ellipse(ufo.x, ufo.y - 3, ufo.size * 0.7, ufo.size * 0.4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        // 별 그리기
+        function drawStars() {
+            stars.forEach(star => {
+                if (star.collected) return;
+                
+                ctx.save();
+                
+                // 별 연결선 그리기 (수집된 별들 사이)
+                const collectedStars = stars.filter(s => s.collected);
+                if (collectedStars.length > 1) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    
+                    ctx.beginPath();
+                    for (let i = 0; i < collectedStars.length - 1; i++) {
+                        ctx.moveTo(collectedStars[i].x, collectedStars[i].y);
+                        ctx.lineTo(collectedStars[i + 1].x, collectedStars[i + 1].y);
+                    }
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                
+                // 별 그리기
+                const twinkleSize = star.size + Math.sin(star.twinkle) * 2;
+                ctx.fillStyle = '#ffef94';
+                ctx.shadowColor = '#ffef94';
+                ctx.shadowBlur = 15;
+                
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, twinkleSize, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 별 중심 하이라이트
+                ctx.fillStyle = '#fff';
+                ctx.shadowBlur = 5;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, twinkleSize * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                star.twinkle += 0.1;
+                ctx.restore();
+            });
+        }
+
+        // 혜성 그리기
+        function drawComets() {
+            comets.forEach(comet => {
+                ctx.save();
+                
+                // 혜성 꼬리
+                if (comet.tail.length > 1) {
+                    const gradient = ctx.createLinearGradient(
+                        comet.tail[0].x, comet.tail[0].y,
+                        comet.x, comet.y
+                    );
+                    gradient.addColorStop(0, 'rgba(255, 100, 100, 0)');
+                    gradient.addColorStop(1, comet.color);
+                    
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = comet.size * 0.3;
+                    ctx.shadowColor = comet.color;
+                    ctx.shadowBlur = 10;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(comet.tail[0].x, comet.tail[0].y);
+                    for (let i = 1; i < comet.tail.length; i++) {
+                        ctx.lineTo(comet.tail[i].x, comet.tail[i].y);
+                    }
+                    ctx.stroke();
+                }
+                
+                // 혜성 머리
+                ctx.fillStyle = comet.color;
+                ctx.shadowColor = comet.color;
+                ctx.shadowBlur = 20;
+                
+                ctx.beginPath();
+                ctx.arc(comet.x, comet.y, comet.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 혜성 중심 하이라이트
+                ctx.fillStyle = '#fff';
+                ctx.shadowBlur = 5;
+                ctx.beginPath();
+                ctx.arc(comet.x, comet.y, comet.size * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            });
+        }
+
+        // 파티클 그리기
+        function drawParticles() {
+            particles.forEach(particle => {
+                ctx.save();
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = particle.color;
+                ctx.shadowColor = particle.color;
+                ctx.shadowBlur = 5;
+                
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            });
+        }
+
+        // 충돌 감지
+        function checkCollision(obj1, obj2) {
+            const dx = obj1.x - obj2.x;
+            const dy = obj1.y - obj2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < (obj1.size + obj2.size);
+        }
+
+        // 게임 업데이트
+        function update() {
+            if (gameState.scene !== 'playing') return;
+
+            // UFO 움직임
+            ufo.x += ufo.dx;
+            ufo.y += ufo.dy;
+
+            // 화면 경계 처리
+            if (ufo.x < ufo.size) ufo.x = ufo.size;
+            if (ufo.x > canvas.width - ufo.size) ufo.x = canvas.width - ufo.size;
+            if (ufo.y < ufo.size) ufo.y = ufo.size;
+            if (ufo.y > canvas.height - ufo.size) ufo.y = canvas.height - ufo.size;
+
+            // UFO 궤적 업데이트
+            if (ufo.dx !== 0 || ufo.dy !== 0) {
+                ufo.trail.push({x: ufo.x, y: ufo.y});
+                if (ufo.trail.length > 50) {
+                    ufo.trail.shift();
+                }
+            }
+
+            // 별과 충돌 검사
+            stars.forEach(star => {
+                if (!star.collected && checkCollision(ufo, star)) {
+                    star.collected = true;
+                    gameState.collectedStars++;
+                    gameState.score++;
+                    
+                    // 별 수집 효과
+                    createParticles(star.x, star.y, '#ffef94', 12);
+                    
+                    // 진행률 업데이트
+                    updateProgress();
+                    
+                    // 스테이지 클리어 확인
+                    if (gameState.collectedStars === gameState.totalStars) {
+                        gameState.score += 5; // 보너스 점수
+                        gameState.scene = 'stageClear';
+                        
+                        // 다음 스테이지 정보 표시
+                        const nextStage = gameState.currentStage + 1;
+                        const nextConstellation = constellations[nextStage];
+                        if (nextConstellation) {
+                            document.getElementById('nextStageName').textContent = nextConstellation.name;
+                        } else {
+                            document.getElementById('nextStageName').textContent = '모든 스테이지 완료!';
+                        }
+                        
+                        document.getElementById('stageClear').style.display = 'block';
+                    }
+                }
+            });
+
+            // 혜성과 충돌 검사
+            comets.forEach(comet => {
+                if (checkCollision(ufo, comet)) {
+                    gameState.scene = 'gameOver';
+                    createParticles(ufo.x, ufo.y, '#ff6b6b', 20);
+                    
+                    // 최고 점수 업데이트
+                    if (gameState.score > gameState.bestScore) {
+                        gameState.bestScore = gameState.score;
+                        localStorage.setItem('bestScore', gameState.bestScore.toString());
+                    }
+                    
+                    // 게임 오버 정보 업데이트
+                    document.getElementById('finalStage').textContent = gameState.currentStage;
+                    document.getElementById('finalScore').textContent = gameState.score;
+                    document.getElementById('finalBestScore').textContent = gameState.bestScore;
+                    document.getElementById('gameOver').style.display = 'block';
+                }
+            });
+
+            // 혜성 업데이트
+            comets.forEach((comet, index) => {
+                comet.y += comet.speed;
+                
+                // 꼬리 업데이트
+                comet.tail.push({x: comet.x, y: comet.y});
+                if (comet.tail.length > 8) {
+                    comet.tail.shift();
+                }
+                
+                // 화면 아래로 나간 혜성 제거
+                if (comet.y > canvas.height + comet.size) {
+                    comets.splice(index, 1);
+                }
+            });
+
+            // 파티클 업데이트
+            particles.forEach((particle, index) => {
+                particle.x += particle.dx;
+                particle.y += particle.dy;
+                particle.life -= particle.decay;
+                particle.dx *= 0.98;
+                particle.dy *= 0.98;
+                
+                if (particle.life <= 0) {
+                    particles.splice(index, 1);
+                }
+            });
+
+            // UI 업데이트
+            document.getElementById('score').textContent = gameState.score;
+        }
+
+        // 게임 렌더링
+        function render() {
+            // 배경 클리어
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState.scene === 'playing' || gameState.scene === 'stageClear') {
+                drawParticles();
+                drawStars();
+                drawComets();
+                drawUfo();
+            }
+        }
+
+        // 게임 루프
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 게임 시작
+        function startGame() {
+            gameState.scene = 'playing';
+            gameState.score = 0;
+            gameState.currentStage = 1;
+            
+            document.getElementById('mainMenu').style.display = 'none';
+            initStage();
+            updateBestScoreDisplay();
+        }
+
+        // 다음 스테이지
+        function nextStage() {
+            gameState.currentStage++;
+            
+            if (constellations[gameState.currentStage]) {
+                document.getElementById('stageClear').style.display = 'none';
+                gameState.scene = 'playing';
+                initStage();
+            } else {
+                // 모든 스테이지 완료
+                gameState.scene = 'gameOver';
+                document.getElementById('stageClear').style.display = 'none';
+                
+                // 최고 점수 업데이트
+                if (gameState.score > gameState.bestScore) {
+                    gameState.bestScore = gameState.score;
+                    localStorage.setItem('bestScore', gameState.bestScore.toString());
+                }
+                
+                document.getElementById('finalStage').textContent = gameState.currentStage - 1;
+                document.getElementById('finalScore').textContent = gameState.score;
+                document.getElementById('finalBestScore').textContent = gameState.bestScore;
+                document.getElementById('gameOver').style.display = 'block';
+            }
+        }
+
+        // 게임 재시작
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            startGame();
+        }
+
+        // 메인 메뉴 표시
+        function showMainMenu() {
+            gameState.scene = 'menu';
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('stageClear').style.display = 'none';
+            document.getElementById('mainMenu').style.display = 'block';
+        }
+
+        // 키보드 이벤트
+        document.addEventListener('keydown', (e) => {
+            if (gameState.scene !== 'playing') return;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    ufo.dy = -ufo.speed;
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    ufo.dy = ufo.speed;
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    ufo.dx = -ufo.speed;
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    ufo.dx = ufo.speed;
+                    break;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (gameState.scene !== 'playing') return;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'ArrowDown':
+                case 'w':
+                case 'W':
+                case 's':
+                case 'S':
+                    ufo.dy = 0;
+                    break;
+                casecase 'ArrowLeft':
+                case 'ArrowRight':
+                case 'a':
+                case 'A':
+                case 'd':
+                case 'D':
+                    ufo.dx = 0;
+                    break;
+            }
+        });
+
+        // 혜성 주기적으로 생성
+        setInterval(() => {
+            if (gameState.scene === 'playing') {
+                createComet();
+            }
+        }, 2000); // 2초마다 혜성 생성
+
+        // 초기 실행
+        createBackgroundStars();
+        updateBestScoreDisplay();
+        gameLoop(); // 게임 루프 시작
+    </script>
+</body>
+</html>
